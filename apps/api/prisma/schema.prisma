@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  BACK_OFFICE
+  PC_WEB
+  RESPONSIVE_WEB
+  ANDROID
+  IOS
+}
+enum Strategy {
+  NORMAL
+  EXCEPTION
+  BOUNDARY
+  PERMISSION
+  BACKEND
+  STATE
+  RESPONSIVE
+  APP
+  E2E
+  VISUAL
+  CHAOS
+  REGRESSION
+}
+enum RunMode {
+  SMOKE
+  REGRESSION
+  FULL_MATRIX
+  FAIL_RETEST
+}
+enum RunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+enum ResultStatus {
+  READY
+  PASS
+  FAIL
+  BLOCKED
+  SKIP
+  REQUIREMENT_CHECK
+  FLAKY
+}
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+enum SourceType {
+  DIRECT
+  DERIVED
+  SUGGESTED
+  DISCOVERED
+}
+enum ArtifactType {
+  SCREENSHOT
+  TRACE
+  VIDEO
+  LOG
+  REPORT
+  ZIP
+}
+
+model Project {
+  id String @id @default(cuid())
+  name String
+  platforms Platform[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  environments Environment[]
+  features Feature[]
+  testCases TestCase[]
+  runs TestRun[]
+  analysisJobs AnalysisJob[]
+  suites TestSuite[]
+}
+model Environment {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name String
+  webUrl String?
+  apiUrl String?
+  isProduction Boolean @default(false)
+  /// 실행 대상 종류: PC_WEB/RESPONSIVE_WEB/BACK_OFFICE(웹, Playwright) 또는 ANDROID/IOS(앱, Appium)
+  platform Platform @default(PC_WEB)
+  /// 앱 실행 설정 { appId, deviceName, udid, app, appActivity, automationName, extra }
+  appConfig Json?
+  discovery Json?
+  createdAt DateTime @default(now())
+  credentials Credential[]
+  runs TestRun[]
+  analysisJobs AnalysisJob[]
+}
+model Credential {
+  id String @id @default(cuid())
+  environmentId String
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  role String
+  username String
+  encryptedPassword String
+  createdAt DateTime @default(now())
+  runs TestRun[]
+}
+model Feature {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  platform Platform
+  menu String?
+  page String?
+  url String?
+  name String
+  metadata Json
+  createdAt DateTime @default(now())
+  testCases TestCase[]
+}
+/// 업로드한 QA 시나리오 시트(엑셀). 결과는 이 원본 양식에 그대로 채워서 내려받습니다.
+model TestSuite {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name String
+  fileName String
+  /// 서버에 보관한 원본 파일 경로 (ARTIFACT_ROOT 하위)
+  filePath String
+  /// 시트별 열 위치·결과 코드·메모 { sheets: [{ name, headerRow, columns, resultCodes, notes, meta, count }] }
+  meta Json
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  testCases TestCase[]
+  runs TestRun[]
+}
+model TestCase {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  suiteId String?
+  suite TestSuite? @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  /// 시트의 STEP ID / 시트 이름 / 행 번호 (결과 기입 위치)
+  externalId String?
+  sheetName String?
+  rowNumber Int?
+  featureId String?
+  feature Feature? @relation(fields: [featureId], references: [id], onDelete: SetNull)
+  platform Platform
+  strategy Strategy
+  title String
+  precondition String?
+  testData Json?
+  steps Json
+  expected Json
+  severity Severity
+  sourceType SourceType
+  metadata Json?
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  results TestResult[]
+  @@index([suiteId])
+}
+model TestRun {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environmentId String
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  credentialId String?
+  credential Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  /// 지정하면 이 시나리오 시트의 케이스만 실행
+  suiteId String?
+  suite TestSuite? @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  /// 시나리오 시트 중 일부 시트만 실행할 때 시트 이름 목록 (비어 있으면 전체)
+  sheetFilter String[] @default([])
+  mode RunMode
+  status RunStatus @default(QUEUED)
+  /// 실행 전체가 실패한 원인 (로그인 실패, 워커 반복 중단 등)
+  error String?
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  results TestResult[]
+  artifacts Artifact[]
+  @@index([status])
+}
+/// 서비스 구조 분석(Discovery) + TC 생성 백그라운드 작업
+model AnalysisJob {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environmentId String
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  status RunStatus @default(QUEUED)
+  /// 생성할 테스트 전략 목록 (TestStrategy[])
+  strategies Json
+  replace Boolean @default(true)
+  /// 완료 시 요약 { pages, forms, inputs, buttons, apis, generated, byStrategy }
+  summary Json?
+  error String?
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([environmentId, createdAt])
+}
+model TestResult {
+  id String @id @default(cuid())
+  runId String
+  run TestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testCaseId String
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
+  result ResultStatus
+  actual String?
+  durationMs Int
+  networkLogs Json?
+  consoleLogs Json?
+  /// 사람이 확인해 정한 판정 (재확인·테스트불가·실패 항목을 화면에서 O/F/NT 로 확정). 있으면 result 대신 사용
+  manualResult ResultStatus?
+  manualNote String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  artifacts Artifact[]
+  issue Issue?
+  @@unique([runId, testCaseId])
+}
+model Issue {
+  id String @id @default(cuid())
+  testResultId String @unique
+  testResult TestResult @relation(fields: [testResultId], references: [id], onDelete: Cascade)
+  description String
+  expected String?
+  actual String?
+  reproductionSteps String?
+  severity Severity
+  frequency String?
+  rootCauseCandidate String?
+  retestResult String?
+  createdAt DateTime @default(now())
+}
+model Artifact {
+  id String @id @default(cuid())
+  runId String
+  run TestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testResultId String?
+  testResult TestResult? @relation(fields: [testResultId], references: [id], onDelete: Cascade)
+  type ArtifactType
+  path String
+  createdAt DateTime @default(now())
+}

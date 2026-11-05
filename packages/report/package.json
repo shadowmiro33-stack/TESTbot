@@ -1,0 +1,20 @@
+{
+  "name": "@autohands/report",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: autohands
+      POSTGRES_PASSWORD: autohands
+      POSTGRES_DB: autohands
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autohands"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://autohands:autohands@postgres:5432/autohands?schema=public
+      REDIS_URL: redis://redis:6379
+      API_PORT: 4000
+      # 컨테이너 밖(웹 컨테이너)에서 접근해야 하므로 모든 인터페이스에서 수신
+      API_HOST: 0.0.0.0
+      ARTIFACT_ROOT: /app/artifacts
+    ports: ["4000:4000"]
+    volumes: [artifacts:/app/artifacts]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    env_file: .env
+    # 진행 중인 실행을 마칠 시간을 줍니다. 시간 안에 못 끝나면 다른 워커가 이어서 실행합니다.
+    stop_grace_period: 120s
+    environment:
+      DATABASE_URL: postgresql://autohands:autohands@postgres:5432/autohands?schema=public
+      REDIS_URL: redis://redis:6379
+      ARTIFACT_ROOT: /app/artifacts
+    volumes: [artifacts:/app/artifacts]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # 대시보드의 /api/* 요청을 Next 서버가 이 주소로 프록시합니다 (빌드 시 고정)
+        API_INTERNAL_URL: http://api:4000
+    ports: ["3000:3000"]
+    depends_on: [api]
+volumes:
+  postgres_data:
+  artifacts:

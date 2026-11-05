@@ -1,0 +1,24 @@
+{
+  "name": "@autohands/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@autohands/browser-runner": "workspace:*",
+    "@autohands/core": "workspace:*",
+    "@autohands/shared": "workspace:*",
+    "@prisma/client": "6.19.0",
+    "ioredis": "^6.0.0"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0",
+    "tsx": "^4.23.13",
+    "typescript": "5.9.3"
+  }
+}

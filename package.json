@@ -1,0 +1,26 @@
+{
+  "name": "autohands-ai-qa",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @autohands/api --filter @autohands/worker --filter @autohands/web dev",
+    "worker": "pnpm --filter @autohands/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @autohands/api prisma generate",
+    "db:migrate": "pnpm --filter @autohands/api prisma migrate dev",
+    "db:push": "pnpm --filter @autohands/api prisma db push",
+    "playwright:install": "pnpm --filter @autohands/browser-runner exec playwright install chromium",
+    "db:local": "node scripts/local-db.mjs",
+    "stop": "node scripts/stop-local.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.13",
+    "prettier": "^3.9.6",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11",
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}

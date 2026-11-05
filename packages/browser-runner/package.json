@@ -1,0 +1,21 @@
+{
+  "name": "@autohands/browser-runner",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@autohands/core": "workspace:*",
+    "@autohands/shared": "workspace:*",
+    "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
